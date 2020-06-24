@@ -45,7 +45,7 @@ div.half {
                     <span v-else style='color:red'>[<span tt='required'></span>]</span>
                 </div>
                 <div>
-                    <textarea style='width:100%' rows='6' v-model='desc' tt_title='t_desc'></textarea>
+                    <textarea style='width:100%;margin-top:0.5rem' rows='6' v-model='desc' tt_title='t_desc'></textarea>
                 </div>
             </div>
             <div v-if='error!=""' class="alert alert-danger" role="alert">
@@ -102,6 +102,7 @@ let MainPage = Vue.extend ( {
 {{PD-self|author=I, {{U|`+username+`}} }}` ;
         } ,
         render : function () {
+            this.image_url = '' ;
             this.init_desc() ;
             this.image_url = this.generate_image_url() ;
         } ,
