@@ -1,0 +1,142 @@
+<style>
+#mainbox {
+    display:flex;
+    align-content: stretch;
+    height:500px;
+    width:100%;
+}
+div.half {
+    flex-grow: 1;
+    height:100%;
+}
+</style>
+
+<template id='main-page-template'>
+<div class='container'>
+    <div class='lead'>
+        <div>
+            <span tt='main_blurb'></span>
+            <a href='https://www.wikidata.org/wiki/Wikidata:Drawshield' class='wikidata' target='_blank' tt='here'></a>
+        </div>
+    </div>
+    <div id='mainbox'>
+        <div class='half'>
+            <div>
+                <span tt='blazon_of'></span>
+                <input type='text' v-model='entity' tt_title='t_entity' @change='entity_change' />
+                <span v-if='entity==""' style='color:red'>[<span tt='required'></span>]</span>
+            </div>
+            <div style='float:right'>
+                <a href='#' @click.prevent='blazony="Azure, a bend or"' tt='example'></a>
+            </div>
+            <h2>Blazonry code</h2>
+            <textarea rows='6' style='width:100%' v-model='blazony'></textarea>
+            <div>
+                <label>
+                    <input type='checkbox' v-model='shiny' />
+                    <span tt='shiny'></span>
+                </label>
+                <button v-if='blazony!=""' class='btn btn-outline-success' @click.prevent='render' tt='b_render'></button>
+            </div>
+            <div v-if='image_url!="" && entity!=""'>
+                <div style='display:flex'>
+                    <input type='text' v-model='filename' tt_title='t_filename' style='flex-grow:1'/>.svg
+                    <button v-if='filename!=""' class='btn btn-outline-primary' @click.prevent='upload' tt='b_upload'></button>
+                    <span v-else style='color:red'>[<span tt='required'></span>]</span>
+                </div>
+                <div>
+                    <textarea style='width:100%' rows='6' v-model='desc' tt_title='t_desc'></textarea>
+                </div>
+            </div>
+            <div v-if='error!=""' class="alert alert-danger" role="alert">
+                {{error}}
+            </div>
+            <div v-if='uploaded_filename!=""' class="alert alert-success" role="alert">
+                This file now exists on Commons as <a target='_blank' :href='"https://commons.wikimedia.org/wiki/File:"+uploaded_filename'>{{uploaded_filename}}</a>.
+            </div>
+        </div>
+        <div class='half' style='margin-left:2rem;border:1px dotted #DDD'>
+            <div v-if='image_url!=""' style='width:100%;height:100%'>
+                <object :data="image_url" type="image/svg+xml" style='width:100%;max-height:100%'>
+                </object>
+            </div>
+        </div>
+    </div>
+</div>
+</template>
+
+<script>
+'use strict';
+
+let MainPage = Vue.extend ( {
+    props : [] ,
+    data : function () { return { image_url:'',shiny:true,entity:'',filename:'',desc:'',blazony:'',error:'',uploaded_filename:'' } } ,
+    created : function () {
+    } ,
+    updated : function () { tt.updateInterface(this.$el) ; } ,
+    mounted : function () { tt.updateInterface(this.$el) ; } ,
+    methods : {
+        generate_image_url : function ( filename = '' ) {
+            let url = "https://drawshield.toolforge.org/drawshield/drawshield.php?blazon=" + encodeURIComponent($.trim(this.blazony)) ;
+            if ( this.shiny ) url += "&effect=shiny" ;
+            if ( filename != '' ) url += "&asfile=1&saveformat=svg&filename="+encodeURIComponent(filename.replace(/\.svg$/i,'')) ;
+            return url ;
+        } ,
+        entity_change : function () {
+            this.filename = 'Blazon of ' + this.entity ;
+        } ,
+        init_desc : function () {
+            if ( this.desc != '' ) return ;
+            let username = widar.getUserName() ;
+            this.desc = `== {{int:filedesc}} ==
+{{Information
+|description={{en|Blazon of $ENTITY_NAME$.}}
+|source=https://drawshield.toolforge.org/
+|date=$DATE$
+|author=`+username+`
+}}
+
+{{Blazony|$BLAZONY_CODE$}}
+
+== {{int:license-header}} ==
+{{PD-self|author=I, {{U|`+username+`}} }}` ;
+        } ,
+        render : function () {
+            this.init_desc() ;
+            this.image_url = this.generate_image_url() ;
+        } ,
+        today : function () {
+            var today = new Date();
+            var dd = String(today.getDate()).padStart(2, '0');
+            var mm = String(today.getMonth() + 1).padStart(2, '0'); //January is 0!
+            var yyyy = today.getFullYear();
+
+            today = mm + '/' + dd + '/' + yyyy;
+            return today ;
+        } ,
+        upload : function () {
+            let me = this ;
+            me.error = '' ;
+            me.uploaded_filename = '' ;
+            let desc = me.desc ;
+            desc = desc.replace('$BLAZONY_CODE$',$.trim(me.blazony)) ;
+            desc = desc.replace('$ENTITY_NAME$',$.trim(me.entity)) ;
+            desc = desc.replace('$DATE$',me.today()) ;
+            $.post ( '/api.php' , {
+                action:'upload_from_url',
+                url: me.generate_image_url(me.filename),
+                newfile: me.filename+'.svg',
+                desc: desc,
+                comment: 'Blazon generated with https://drawshield.toolforge.org/'
+            } , function ( d ) {
+                if ( ((d.res||{}).upload||{}).result == "Success" ) {
+                    me.uploaded_filename = d.res.upload.filename ;
+                } else {
+                    me.error = JSON.stringify ( d ) ;
+                }
+            } , 'json' ) ;
+        }
+    } ,
+    template:'#main-page-template'
+} ) ;
+</script>
